@@ -1,10 +1,4 @@
-﻿Below is a complete example of an ASP.NET Core MVC application that meets your requirements. This solution uses Entity Framework Core “code first” with two models (Student and Address), sets up a one‐to‐many relationship (a student can have many addresses), uses data annotations for validations (with error messages rendered under each field in the Bootstrap modal), handles file uploads by storing the image as a byte array, and uses Bootstrap modals (vertically centered) for create, edit, details, and delete operations for both students and addresses.
-
-> **Note:** You can create a new ASP.NET Core MVC project (for example, named “StudentCrudApp”) and add the following files. Update your connection string as needed (the sample uses LocalDB). You may also need to run EF Core migrations to create the database.
-
----
-
-## 1. Project Structure
+﻿## 1. Project Structure
 
 For clarity, here is the folder/file structure:
 
@@ -926,10 +920,3 @@ This partial view is used to confirm deletion of an address.
          <button type="submit" class="btn btn-danger">Delete</button>
     </div>
 </form>
-```
-
----
-
-## 3. Final Remarks
-
-- **Validations:** All required fields (except the ProfilePicture) have a `[Required]` attribute
