@@ -1,0 +1,95 @@
+﻿@model IEnumerable<StudentCrudApp.Models.Student>
+@{
+    ViewData["Title"] = "Students";
+    var modalData = ViewData["ModalData"] as Student;
+    var modalPartial = ViewData["ModalPartial"] as string;
+}
+
+
+<h2>Students</h2>
+
+@* <p>
+    <button id="showmodal" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#studentModal"
+            onclick="openStudentModal('@Url.Action("Create", "Students")')">
+        Add Student
+    </button>
+</p> *@
+
+@* <button type="button" class="btn btn-primary mb-3" id="btnAddStudent">
+    Add Student
+</button> *@
+<button class="btn btn-primary mb-3 btn-general"
+        data-url="@Url.Action("Create", "Students")">
+    Add Student
+</button>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Name</th>
+        <th>Age</th>
+        <th>Profile Picture</th>
+        <th>Actions</th>
+    </tr>
+    @foreach (var student in Model)
+    {
+        <tr>
+            <td>@student.Name</td>
+            <td>@student.Age</td>
+            <td>
+                @if (student.ProfilePicture != null)
+                {
+                    var base64 = Convert.ToBase64String(student.ProfilePicture);
+                    <img src="data:image/png;base64,@base64" style="max-width:1000px; max-height:100px;" />
+                }
+            </td>
+            <td>
+                @* <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#studentModal"
+                        onclick="openStudentModal('@Url.Action("Details", "Students", new { id = student.Id })')">
+                    Details
+                </button>
+                <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#studentModal"
+                        onclick="openStudentModal('@Url.Action("Edit", "Students", new { id = student.Id })')">
+                    Edit
+                </button>
+                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#studentModal"
+                        onclick="openStudentModal('@Url.Action("Delete", "Students", new { id = student.Id })')">
+                    Delete
+                </button> *@
+                <button class="btn btn-info btn-sm btn-general"
+                        data-url="@Url.Action("Details", "Students", new { id = student.Id })">
+                    Details
+                </button>
+                <button class="btn btn-warning btn-sm btn-general"
+                        data-url="@Url.Action("Edit", "Students", new { id = student.Id })">
+                    Edit
+                </button>
+                <button class="btn btn-danger btn-sm btn-general"
+                        data-url="@Url.Action("Delete", "Students", new { id = student.Id })">
+                    Delete
+                </button>
+                <a class="btn btn-outline-dark btn-sm" asp-controller="Addresses" asp-action="Index" asp-route-studentId="@student.Id">
+                    Addresses
+                </a>
+            </td>
+        </tr>
+    }
+</table>
+
+<!-- Student Modal -->
+
+<div class="modal fade" id="modalOpen" tabindex="-1" aria-hidden="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" id="studentModalContent">
+            
+            <!-- Populated dynamically via AJAX -->
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

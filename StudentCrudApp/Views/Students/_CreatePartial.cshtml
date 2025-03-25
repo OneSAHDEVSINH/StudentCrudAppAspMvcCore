@@ -1,0 +1,49 @@
+﻿@model StudentCrudApp.Models.Student
+<div class="modal-header">
+    <h5 class="modal-title">@((Model.Id == 0) ? "Add Student" : "Edit Student")</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+        @* <span aria-hidden="true">&times;</span> *@
+    </button>
+</div>
+@* <form asp-action="Create" enctype="multipart/form-data" method="post" id="createForm">
+    <div class="modal-header">
+        <h5 class="modal-title">Add Student</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div> *@
+<form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" enctype="multipart/form-data" method="post">
+    <div class="modal-body">
+        @*added later*@
+        @if (Model.Id != 0)
+        {
+            @Html.HiddenFor(m => m.Id)
+        }
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Age" class="form-label"></label>
+            <input asp-for="Age" class="form-control"/>
+            <span asp-validation-for="Age" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Profile Picture</label>
+            <input type="file" name="ProfilePictureFile" class="form-control" />
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="submit" class="btn btn-primary" data-save="student">Save</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    </div>
+</form>
+
+@* @section Scripts {
+    <partial name="../Shared/_ValidationScriptsPartial" />
+} *@
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
+

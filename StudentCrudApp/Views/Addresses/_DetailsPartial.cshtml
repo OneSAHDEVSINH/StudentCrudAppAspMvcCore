@@ -1,0 +1,21 @@
+﻿@model StudentCrudApp.Models.Address
+
+<div class="modal-header">
+    <h5 class="modal-title">Address Details</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+    <dl class="row">
+        <dt class="col-sm-4">Address Line</dt>
+        <dd class="col-sm-8">@Model.AddressLine</dd>
+        <dt class="col-sm-4">City</dt>
+        <dd class="col-sm-8">@Model.City</dd>
+        <dt class="col-sm-4">State</dt>
+        <dd class="col-sm-8">@Model.State</dd>
+        <dt class="col-sm-4">PinCode</dt>
+        <dd class="col-sm-8">@Model.PinCode</dd>
+    </dl>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>

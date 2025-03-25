@@ -1,0 +1,34 @@
+﻿@model StudentCrudApp.Models.Student
+
+<div class="modal-header">
+    <h5 class="modal-title">Student Details</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+    <dl class="row">
+        <dt class="col-sm-4">Name</dt>
+        <dd class="col-sm-8">@Model.Name</dd>
+        <dt class="col-sm-4">Age</dt>
+        <dd class="col-sm-8">@Model.Age</dd>
+        @if (Model.ProfilePicture != null)
+        {
+            var base64 = Convert.ToBase64String(Model.ProfilePicture);
+            <dt class="col-sm-4">Profile Picture</dt>
+            <dd class="col-sm-8">
+                <img src="data:image/png;base64,@base64" alt="Profile Picture" style="max-width:100px;" />
+            </dd>
+        }
+        <dt class="col-sm-4">Addresses</dt>
+        <dd class="col-sm-8">
+            <ul>
+                @foreach (var addr in Model.Addresses)
+                {
+                    <li>@addr.AddressLine, @addr.City, @addr.State, @addr.PinCode</li>
+                }
+            </ul>
+        </dd>
+    </dl>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>

@@ -1,0 +1,50 @@
+﻿@model StudentCrudApp.Models.Address
+
+@* <form asp-action="Create">
+    <input type="hidden" asp-for="StudentId" />
+    <div class="modal-header">
+        <h5 class="modal-title">Add Address</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div> *@
+<div class="modal-header">
+    <h5 class="modal-title">@((Model.AddressID == 0) ? "Add Address" : "Edit Address")</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+        @* <span aria-hidden="true">&times;</span> *@
+    </button>
+</div>
+<form asp-action="@(Model.AddressID == 0 ? "Create" : "Edit")" method="post">
+    <input type="hidden" asp-for="AddressID" />
+    <input type="hidden" asp-for="StudentId" />
+    <div class="modal-body">
+        <div class="mb-3">
+            <label asp-for="AddressLine" class="form-label"></label>
+            <input asp-for="AddressLine" class="form-control" />
+            <span asp-validation-for="AddressLine" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="City" class="form-label"></label>
+            <input asp-for="City" class="form-control" />
+            <span asp-validation-for="City" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="State" class="form-label"></label>
+            <input asp-for="State" class="form-control" />
+            <span asp-validation-for="State" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="PinCode" class="form-label"></label>
+            <input asp-for="PinCode" class="form-control" />
+            <span asp-validation-for="PinCode" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

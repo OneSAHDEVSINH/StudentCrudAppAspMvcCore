@@ -1,0 +1,935 @@
+﻿Below is a complete example of an ASP.NET Core MVC application that meets your requirements. This solution uses Entity Framework Core “code first” with two models (Student and Address), sets up a one‐to‐many relationship (a student can have many addresses), uses data annotations for validations (with error messages rendered under each field in the Bootstrap modal), handles file uploads by storing the image as a byte array, and uses Bootstrap modals (vertically centered) for create, edit, details, and delete operations for both students and addresses.
+
+> **Note:** You can create a new ASP.NET Core MVC project (for example, named “StudentCrudApp”) and add the following files. Update your connection string as needed (the sample uses LocalDB). You may also need to run EF Core migrations to create the database.
+
+---
+
+## 1. Project Structure
+
+For clarity, here is the folder/file structure:
+
+```
+StudentCrudApp
+│
+├── Controllers
+│    ├── StudentsController.cs
+│    └── AddressesController.cs
+│
+├── Data
+│    └── ApplicationDbContext.cs
+│
+├── Models
+│    ├── Student.cs
+│    └── Address.cs
+│
+├── Views
+│    ├── Shared
+│    │      ├── _Layout.cshtml
+│    │      └── _ValidationScriptsPartial.cshtml
+│    │
+│    ├── Students
+│    │      ├── Index.cshtml
+│    │      ├── _CreateEditPartial.cshtml
+│    │      ├── _DeletePartial.cshtml
+│    │      └── _DetailsPartial.cshtml
+│    │
+│    └── Addresses
+│           ├── _AddressCreateEditPartial.cshtml
+│           └── _AddressDeletePartial.cshtml
+│
+├── appsettings.json
+└── Program.cs
+```
+
+---
+
+## 2. Code Files
+
+### **Program.cs**
+
+This file sets up the host, registers MVC and the EF Core context, and defines the default route.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using StudentCrudApp.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+// Configure EF Core with SQL Server (update your connection string as needed)
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Students}/{action=Index}/{id?}");
+
+app.Run();
+```
+
+### **appsettings.json**
+
+Make sure to have a connection string (this example uses LocalDB):
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=StudentDb;Trusted_Connection=True;MultipleActiveResultSets=true"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+---
+
+### **Models**
+
+#### **Models/Student.cs**
+
+```csharp
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+
+namespace StudentCrudApp.Models
+{
+    public class Student
+    {
+        [Key]
+        public int Id { get; set; }
+        
+        [Required(ErrorMessage = "Name is required.")]
+        public string Name { get; set; }
+        
+        [Required(ErrorMessage = "Age is required.")]
+        [Range(1, 150, ErrorMessage ="Age must be between 1 and 150.")]
+        public int Age { get; set; }
+        
+        // ProfilePicture is optional.
+        public byte[]? ProfilePicture { get; set; }
+        
+        // Navigation property
+        public ICollection<Address> Addresses { get; set; }
+    }
+}
+```
+
+#### **Models/Address.cs**
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace StudentCrudApp.Models
+{
+    public class Address
+    {
+        [Key]
+        public int AddressID { get; set; }
+        
+        [Required(ErrorMessage = "Address line is required.")]
+        public string AddressLine { get; set; }
+        
+        [Required(ErrorMessage = "City is required.")]
+        public string City { get; set; }
+        
+        [Required(ErrorMessage = "State is required.")]
+        public string State { get; set; }
+        
+        [Required(ErrorMessage = "PinCode is required.")]
+        public string PinCode { get; set; }
+        
+        [ForeignKey("Student")]
+        [Required]
+        public int StudentId { get; set; }
+        
+        public Student Student { get; set; }
+    }
+}
+```
+
+---
+
+### **Data/ApplicationDbContext.cs**
+
+This file defines the EF Core context and configures the relationship between students and addresses.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using StudentCrudApp.Models;
+
+namespace StudentCrudApp.Data
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+            : base(options)
+        { }
+
+        public DbSet<Student> Students { get; set; }
+        public DbSet<Address> Addresses { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Student>()
+                .HasMany(s => s.Addresses)
+                .WithOne(a => a.Student)
+                .HasForeignKey(a => a.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            base.OnModelCreating(modelBuilder);
+        }
+    }
+}
+```
+
+---
+
+### **Controllers**
+
+#### **Controllers/StudentsController.cs**
+
+This controller handles CRUD for students. It returns partial views that will be loaded into Bootstrap modals via AJAX. Note that file upload (for ProfilePicture) is handled in Create/Edit actions.
+
+```csharp
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using StudentCrudApp.Data;
+using StudentCrudApp.Models;
+
+namespace StudentCrudApp.Controllers
+{
+    public class StudentsController : Controller
+    {
+        private readonly ApplicationDbContext _context;
+        public StudentsController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        // GET: Students
+        public async Task<IActionResult> Index()
+        {
+            var students = await _context.Students.Include(s => s.Addresses).ToListAsync();
+            return View(students);
+        }
+
+        // GET: Students/Details/5
+        public async Task<IActionResult> Details(int? id)
+        {
+            if (id == null)
+                return NotFound();
+
+            var student = await _context.Students
+                .Include(s => s.Addresses)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (student == null)
+                return NotFound();
+
+            return PartialView("_DetailsPartial", student);
+        }
+
+        // GET: Students/Create
+        public IActionResult Create()
+        {
+            return PartialView("_CreateEditPartial", new Student());
+        }
+
+        // POST: Students/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Student student)
+        {
+            if (ModelState.IsValid)
+            {
+                // Handle profile picture upload if any.
+                if (Request.Form.Files.Count > 0)
+                {
+                    var file = Request.Form.Files[0];
+                    using (var memoryStream = new MemoryStream())
+                    {
+                        await file.CopyToAsync(memoryStream);
+                        student.ProfilePicture = memoryStream.ToArray();
+                    }
+                }
+                _context.Students.Add(student);
+                await _context.SaveChangesAsync();
+                return Json(new { isValid = true });
+            }
+            return PartialView("_CreateEditPartial", student);
+        }
+
+        // GET: Students/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null)
+                return NotFound();
+            var student = await _context.Students.FindAsync(id);
+            if (student == null)
+                return NotFound();
+            return PartialView("_CreateEditPartial", student);
+        }
+
+        // POST: Students/Edit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, Student student)
+        {
+            if (id != student.Id)
+                return NotFound();
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    // Update profile picture if a new file is uploaded.
+                    if (Request.Form.Files.Count > 0)
+                    {
+                        var file = Request.Form.Files[0];
+                        using (var memoryStream = new MemoryStream())
+                        {
+                            await file.CopyToAsync(memoryStream);
+                            student.ProfilePicture = memoryStream.ToArray();
+                        }
+                    }
+                    _context.Update(student);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!StudentExists(student.Id))
+                        return NotFound();
+                    else
+                        throw;
+                }
+
+                return Json(new { isValid = true });
+            }
+            return PartialView("_CreateEditPartial", student);
+        }
+
+        // GET: Students/Delete/5
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null)
+                return NotFound();
+
+            var student = await _context.Students
+                .FirstOrDefaultAsync(m => m.Id == id);
+            if (student == null)
+                return NotFound();
+            return PartialView("_DeletePartial", student);
+        }
+
+        // POST: Students/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var student = await _context.Students.FindAsync(id);
+            if (student != null)
+            {
+                _context.Students.Remove(student);
+                await _context.SaveChangesAsync();
+            }
+            return Json(new { isValid = true });
+        }
+
+        private bool StudentExists(int id)
+        {
+            return _context.Students.Any(e => e.Id == id);
+        }
+    }
+}
+```
+
+#### **Controllers/AddressesController.cs**
+
+This controller handles CRUD for addresses. Because an address always belongs to a student, we pass the StudentId when creating an address.
+
+```csharp
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using StudentCrudApp.Data;
+using StudentCrudApp.Models;
+
+namespace StudentCrudApp.Controllers
+{
+    public class AddressesController : Controller
+    {
+        private readonly ApplicationDbContext _context;
+        public AddressesController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        // GET: Addresses/Create?studentId=1
+        public IActionResult Create(int studentId)
+        {
+            var address = new Address { StudentId = studentId };
+            return PartialView("_AddressCreateEditPartial", address);
+        }
+
+        // POST: Addresses/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Address address)
+        {
+            if (ModelState.IsValid)
+            {
+                _context.Add(address);
+                await _context.SaveChangesAsync();
+                return Json(new { isValid = true });
+            }
+            return PartialView("_AddressCreateEditPartial", address);
+        }
+
+        // GET: Addresses/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null)
+                return NotFound();
+            var address = await _context.Addresses.FindAsync(id);
+            if (address == null)
+                return NotFound();
+            return PartialView("_AddressCreateEditPartial", address);
+        }
+
+        // POST: Addresses/Edit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, Address address)
+        {
+            if (id != address.AddressID)
+                return NotFound();
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    _context.Update(address);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!AddressExists(address.AddressID))
+                        return NotFound();
+                    else
+                        throw;
+                }
+                return Json(new { isValid = true });
+            }
+            return PartialView("_AddressCreateEditPartial", address);
+        }
+
+        // GET: Addresses/Delete/5
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null)
+                return NotFound();
+            var address = await _context.Addresses
+                              .Include(a => a.Student)
+                              .FirstOrDefaultAsync(a => a.AddressID == id);
+            if (address == null)
+                return NotFound();
+            return PartialView("_AddressDeletePartial", address);
+        }
+
+        // POST: Addresses/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var address = await _context.Addresses.FindAsync(id);
+            if (address != null)
+            {
+                _context.Addresses.Remove(address);
+                await _context.SaveChangesAsync();
+            }
+            return Json(new { isValid = true });
+        }
+
+        private bool AddressExists(int id)
+        {
+            return _context.Addresses.Any(e => e.AddressID == id);
+        }
+    }
+}
+```
+
+---
+
+### **Views**
+
+#### **Views/Shared/_Layout.cshtml**
+
+This layout includes Bootstrap (CSS and JS), jQuery, and the unobtrusive validation scripts.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] - Student CRUD App</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.6.0/css/bootstrap.min.css" 
+          integrity="sha384-B0vP5xmATw1+K9KRQjQERJvtum6yYJl3Yk9zt5EMiZjD5b8iC6x9TWnQv5v6b6" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" 
+            integrity="sha256-/xUj+3OJ+YExlq6GSYGSHk7tPXikynSi3RvD/uh4pE=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+</head>
+<body>
+    <div class="container mt-3">
+        @RenderBody()
+    </div>
+
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.6.0/js/bootstrap.bundle.min.js" 
+            integrity="sha384-Piv4xVNRyMGpqk4St+K9KRQjQERJvtum6yYJl3Yk9zt5EMiZjD5b8iC6x9TWnQv5v6" crossorigin="anonymous"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
+```
+
+#### **Views/Shared/_ValidationScriptsPartial.cshtml**
+
+This file ensures client-side unobtrusive validation scripts are loaded.
+
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate-unobtrusive/3.2.12/jquery.validate.unobtrusive.min.js"></script>
+```
+
+---
+
+#### **Views/Students/Index.cshtml**
+
+This view lists all students and uses a hidden modal container (with the class `.modal-dialog-centered`) whose content is loaded via AJAX. The buttons for Details, Edit, and Delete supply the URL for the partial view.
+
+```razor
+@model IEnumerable<StudentCrudApp.Models.Student>
+@{
+    ViewData["Title"] = "Students";
+}
+
+<h2>Students List</h2>
+<button type="button" class="btn btn-primary mb-3" id="btnAddStudent">
+    Add Student
+</button>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Age</th>
+            <th>Profile Picture</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var student in Model)
+    {
+        <tr>
+            <td>@student.Name</td>
+            <td>@student.Age</td>
+            <td>
+                @if (student.ProfilePicture != null)
+                {
+                    var base64 = Convert.ToBase64String(student.ProfilePicture);
+                    <img src="data:image/png;base64,@base64" alt="Profile" width="50" height="50" />
+                }
+            </td>
+            <td>
+                <button class="btn btn-info btn-sm btn-details" 
+                        data-url="@Url.Action("Details", "Students", new { id = student.Id })">Details</button>
+                <button class="btn btn-warning btn-sm btn-edit" 
+                        data-url="@Url.Action("Edit", "Students", new { id = student.Id })">Edit</button>
+                <button class="btn btn-danger btn-sm btn-delete" 
+                        data-url="@Url.Action("Delete", "Students", new { id = student.Id })">Delete</button>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<!-- Modal Container for Student CRUD operations -->
+<div class="modal fade" id="modalStudent" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <!-- AJAX-loaded content goes here -->
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Function to load modal content.
+            function loadModal(url) {
+                $.get(url).done(function (data) {
+                    $('#modalStudent .modal-content').html(data);
+                    $('#modalStudent').modal('show');
+                });
+            }
+
+            // Add Student
+            $('#btnAddStudent').click(function () {
+                loadModal('@Url.Action("Create", "Students")');
+            });
+
+            // Edit Student
+            $('.btn-edit').click(function () {
+                loadModal($(this).data('url'));
+            });
+
+            // Details Student
+            $('.btn-details').click(function () {
+                loadModal($(this).data('url'));
+            });
+
+            // Delete Student
+            $('.btn-delete').click(function () {
+                loadModal($(this).data('url'));
+            });
+
+            // Handle form submissions in modal via AJAX.
+            $('#modalStudent').on('submit', 'form', function (event) {
+                event.preventDefault();
+                var form = $(this);
+                var formData = new FormData(this);
+                $.ajax({
+                    url: form.attr('action'),
+                    type: form.attr('method'),
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function (response) {
+                        if (response.isValid) {
+                            location.reload();
+                        }
+                        else {
+                            $('#modalStudent .modal-content').html(response);
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+}
+```
+
+---
+
+#### **Views/Students/_CreateEditPartial.cshtml**
+
+This partial view is used for both student creation and editing. Note the use of HTML helpers with unobtrusive validation. The file input for ProfilePicture will post the file for conversion into a byte array.
+
+```razor
+@model StudentCrudApp.Models.Student
+
+<div class="modal-header">
+    <h5 class="modal-title">@((Model.Id == 0) ? "Add Student" : "Edit Student")</h5>
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+       <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<form asp-action="@(Model.Id == 0 ? "Create" : "Edit")" enctype="multipart/form-data" method="post">
+    <div class="modal-body">
+        @if (Model.Id != 0)
+        {
+            @Html.HiddenFor(m => m.Id)
+        }
+        <div class="form-group">
+            <label asp-for="Name"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="Age"></label>
+            <input asp-for="Age" class="form-control" />
+            <span asp-validation-for="Age" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="ProfilePicture">Profile Picture</label>
+            <input asp-for="ProfilePicture" type="file" class="form-control-file" />
+            <span asp-validation-for="ProfilePicture" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="modal-footer">
+         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+         <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+</form>
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+```
+
+---
+
+#### **Views/Students/_DeletePartial.cshtml**
+
+This partial view confirms deletion of a student.
+
+```razor
+@model StudentCrudApp.Models.Student
+
+<div class="modal-header">
+    <h5 class="modal-title">Delete Student</h5>
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+       <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<form asp-action="Delete" method="post">
+    <div class="modal-body">
+        @Html.HiddenFor(model => model.Id)
+        <p>Are you sure you want to delete <strong>@Model.Name</strong>?</p>
+    </div>
+    <div class="modal-footer">
+         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+         <button type="submit" class="btn btn-danger">Delete</button>
+    </div>
+</form>
+```
+
+---
+
+#### **Views/Students/_DetailsPartial.cshtml**
+
+This partial view shows student details and lists the related addresses. It also includes another modal container (for address CRUD operations) and corresponding AJAX script to load address partial views.
+
+```razor
+@model StudentCrudApp.Models.Student
+
+<div class="modal-header">
+    <h5 class="modal-title">Student Details</h5>
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+       <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<div class="modal-body">
+    <dl class="row">
+        <dt class="col-sm-3">Name</dt>
+        <dd class="col-sm-9">@Model.Name</dd>
+        <dt class="col-sm-3">Age</dt>
+        <dd class="col-sm-9">@Model.Age</dd>
+        <dt class="col-sm-3">Profile Picture</dt>
+        <dd class="col-sm-9">
+            @if (Model.ProfilePicture != null)
+            {
+                var base64 = Convert.ToBase64String(Model.ProfilePicture);
+                <img src="data:image/png;base64,@base64" alt="Profile" width="100" height="100" />
+            }
+        </dd>
+    </dl>
+    <h5>Addresses</h5>
+    <button type="button" class="btn btn-primary mb-3" id="btnAddAddress" data-student-id="@Model.Id">
+        Add Address
+    </button>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>AddressLine</th>
+                <th>City</th>
+                <th>State</th>
+                <th>PinCode</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var address in Model.Addresses)
+            {
+                <tr>
+                    <td>@address.AddressLine</td>
+                    <td>@address.City</td>
+                    <td>@address.State</td>
+                    <td>@address.PinCode</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm btn-edit-address" data-url="@Url.Action("Edit", "Addresses", new { id = address.AddressID })">Edit</button>
+                        <button class="btn btn-danger btn-sm btn-delete-address" data-url="@Url.Action("Delete", "Addresses", new { id = address.AddressID })">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<div class="modal-footer">
+     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+</div>
+
+<!-- Modal Container for Address operations -->
+<div class="modal fade" id="modalAddress" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <!-- AJAX-loaded content for addresses goes here -->
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            function loadAddressModal(url) {
+                $.get(url).done(function (data) {
+                    $('#modalAddress .modal-content').html(data);
+                    $('#modalAddress').modal('show');
+                });
+            }
+
+            // Add Address
+            $('#btnAddAddress').click(function () {
+                var studentId = $(this).data('student-id');
+                loadAddressModal('@Url.Action("Create", "Addresses")' + '?studentId=' + studentId);
+            });
+
+            // Edit Address
+            $('.btn-edit-address').click(function () {
+                loadAddressModal($(this).data('url'));
+            });
+
+            // Delete Address
+            $('.btn-delete-address').click(function () {
+                loadAddressModal($(this).data('url'));
+            });
+
+            // Handle address form submit via AJAX.
+            $('#modalAddress').on('submit', 'form', function (event) {
+                event.preventDefault();
+                var form = $(this);
+                $.ajax({
+                    url: form.attr('action'),
+                    type: form.attr('method'),
+                    data: form.serialize(),
+                    success: function (response) {
+                        if (response.isValid) {
+                            // Refresh the details modal to reflect address changes.
+                            var studentId = '@Model.Id';
+                            $.get('@Url.Action("Details", "Students")/' + studentId)
+                              .done(function (data) {
+                                  $('#modalStudent .modal-content').html(data);
+                              });
+                            $('#modalAddress').modal('hide');
+                        }
+                        else {
+                            $('#modalAddress .modal-content').html(response);
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+}
+```
+
+---
+
+#### **Views/Addresses/_AddressCreateEditPartial.cshtml**
+
+This partial view is used for both creating and editing an address.
+
+```razor
+@model StudentCrudApp.Models.Address
+
+<div class="modal-header">
+    <h5 class="modal-title">@((Model.AddressID == 0) ? "Add Address" : "Edit Address")</h5>
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+       <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<form asp-action="@(Model.AddressID == 0 ? "Create" : "Edit")" method="post">
+    <div class="modal-body">
+        @if (Model.AddressID != 0)
+        {
+            @Html.HiddenFor(m => m.AddressID)
+        }
+        @Html.HiddenFor(m => m.StudentId)
+        <div class="form-group">
+            <label asp-for="AddressLine"></label>
+            <input asp-for="AddressLine" class="form-control" />
+            <span asp-validation-for="AddressLine" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="City"></label>
+            <input asp-for="City" class="form-control" />
+            <span asp-validation-for="City" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="State"></label>
+            <input asp-for="State" class="form-control" />
+            <span asp-validation-for="State" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="PinCode"></label>
+            <input asp-for="PinCode" class="form-control" />
+            <span asp-validation-for="PinCode" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="modal-footer">
+         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+         <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+</form>
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+```
+
+---
+
+#### **Views/Addresses/_AddressDeletePartial.cshtml**
+
+This partial view is used to confirm deletion of an address.
+
+```razor
+@model StudentCrudApp.Models.Address
+
+<div class="modal-header">
+    <h5 class="modal-title">Delete Address</h5>
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+       <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<form asp-action="Delete" method="post">
+    <div class="modal-body">
+        @Html.HiddenFor(model => model.AddressID)
+        <p>Are you sure you want to delete this address: <strong>@Model.AddressLine</strong>?</p>
+    </div>
+    <div class="modal-footer">
+         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+         <button type="submit" class="btn btn-danger">Delete</button>
+    </div>
+</form>
+```
+
+---
+
+## 3. Final Remarks
+
+- **Validations:** All required fields (except the ProfilePicture) have a `[Required]` attribute

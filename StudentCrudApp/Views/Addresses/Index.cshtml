@@ -1,0 +1,85 @@
+﻿@model IEnumerable<StudentCrudApp.Models.Address>
+@{
+    ViewData["Title"] = "Addresses";
+    var studentId = (int)ViewBag.StudentId;
+}
+
+<h2>Addresses</h2>
+
+@* <p>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addressModal"
+            onclick="openAddressModal('@Url.Action("Create", "Addresses", new { studentId = studentId })')">
+        Add Address
+    </button>
+    <a class="btn btn-secondary" asp-controller="Students" asp-action="Index">Back to Students</a>
+</p> *@
+<div>
+    @* <button type="button" class="btn btn-primary mb-3" id="btnAddAddress">
+    Add Address
+    </button> *@
+    <button class="btn btn-primary mb-3 btn-general"
+            data-url="@Url.Action("Create", "Addresses", new { studentId = studentId })">
+        Add Address
+    </button>
+    <a class="btn btn-secondary mb-3" asp-controller="Students" asp-action="Index">Back to Students</a>
+</div>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Address Line</th>
+        <th>City</th>
+        <th>State</th>
+        <th>PinCode</th>
+        <th>Actions</th>
+    </tr>
+    @foreach (var address in Model)
+    {
+        <tr>
+            <td>@address.AddressLine</td>
+            <td>@address.City</td>
+            <td>@address.State</td>
+            <td>@address.PinCode</td>
+            <td>
+                @* <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#addressModal"
+                        onclick="openAddressModal('@Url.Action("Details", "Addresses", new { id = address.AddressID })')">
+                    Details
+                </button>
+                <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#addressModal"
+                        onclick="openAddressModal('@Url.Action("Edit", "Addresses", new { id = address.AddressID })')">
+                    Edit
+                </button>
+                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#addressModal"
+                        onclick="openAddressModal('@Url.Action("Delete", "Addresses", new { id = address.AddressID })')">
+                    Delete
+                </button> *@
+                <button class="btn btn-info btn-sm btn-general"
+                        data-url="@Url.Action("Details", "Addresses", new { id = address.AddressID })">
+                    Details
+                </button>
+                <button class="btn btn-warning btn-sm btn-general"
+                        data-url="@Url.Action("Edit", "Addresses", new { id = address.AddressID })">
+                    Edit
+                </button>
+                <button class="btn btn-danger btn-sm btn-general"
+                        data-url="@Url.Action("Delete", "Addresses", new { id = address.AddressID })">
+                    Delete
+                </button>
+            </td>
+        </tr>
+    }
+</table>
+
+<!-- Address Modal -->
+<div class="modal fade" id="modalOpen" tabindex="-1" aria-hidden="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" id="addressModalContent">
+            <!-- Modal content will load here dynamically -->
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
