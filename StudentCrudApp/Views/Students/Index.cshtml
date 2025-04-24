@@ -40,6 +40,8 @@
                 {
                     var base64 = Convert.ToBase64String(student.ProfilePicture);
                     <img src="data:image/png;base64,@base64" style="max-width:1000px; max-height:100px;" />
+                }else{
+                    <div class="alert alert-info">No profile picture available or uploaded by the user.</div>
                 }
             </td>
             <td>
