@@ -1,7 +1,8 @@
 # StudentCrudAppAspMvcCore
-![image](https://github.com/user-attachments/assets/b02dcc33-f0b5-46f6-b2ad-df5beb5970f4)
-![image](https://github.com/user-attachments/assets/5a42aae2-4405-4368-959e-4ce5b78ddaf1)
-![image](https://github.com/user-attachments/assets/88b71069-fa05-4617-b9eb-b4a19f1ff4c9)
+![image](https://github.com/user-attachments/assets/36837a60-1ca1-438d-90d5-7ffccdafa27e)
+![image](https://github.com/user-attachments/assets/41ff137d-c61d-4656-8636-93cfc5873972)
+![image](https://github.com/user-attachments/assets/c1b998d3-1ff5-48f4-b8b1-a272f84d0a27)
+
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
