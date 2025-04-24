@@ -941,3 +941,12 @@ namespace StudentCrudApp.Controllers
 <div class="modal-footer">
     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
 </div>
+<<<<<<< HEAD
+=======
+
+After applying these changes, test the following scenarios:
+- Submit the form with empty fields; validation errors should show inside the modal.
+- If JavaScript is disabled, validation errors should still render but fallback to the main layout.
+
+If you're still stuck, share specific parts of your code, and I’ll guide you further!
+>>>>>>> 567d89df15f1d2dc7d18f83b7cab2dba5d177e4b

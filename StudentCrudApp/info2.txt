@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 ﻿
 ## 1. Project Structure
+=======
+﻿## 1. Project Structure
+>>>>>>> 567d89df15f1d2dc7d18f83b7cab2dba5d177e4b
 
 For clarity, here is the folder/file structure:
 
